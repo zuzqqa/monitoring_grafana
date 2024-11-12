@@ -1,0 +1,39 @@
+# Telegraf Configuration File
+
+[global_tags]
+  # region: "eu-west"
+  # host = "{{ ansible_hostname }}"
+
+[agent]
+  interval = "{{ telegraf_interval | default('10s') }}"
+  round_interval = true
+  collection_jitter = "0s"
+  flush_interval = "10s"
+  flush_jitter = "0s"
+  precision = "0s"
+
+# --- INPUTS ---
+
+[[inputs.cpu]]
+  percpu = true
+  totalcpu = true
+  fieldexclude = ["time_*"]
+
+[[inputs.mem]]
+  fieldexclude = ["total", "buffers", "cached"]
+
+[[inputs.disk]]
+  ignore_fs = ["tmpfs", "devtmpfs"]
+
+[[inputs.system]]
+  fieldexclude = ["uptime"]
+
+# --- OUTPUTS ---
+
+[[outputs.influxdb_v2]]
+  ## InfluxDB URL do zdalnej maszyny
+  urls = ["http://{{ influxdb_host }}"]
+ 
+  token = "{{ influxdb_token }}"
+  organization = "test"
+  bucket = "test"
