@@ -1,0 +1,44 @@
+---
+- name: Download InfluxDB GPG key
+  ansible.builtin.get_url:
+    url: https://repos.influxdata.com/influxdata-archive.key
+    dest: /tmp/influxdata-archive.key
+    mode: '0644'
+
+- name: Veryify GPG key checksum
+  ansible.builtin.command: |
+    echo "943666881a1b8d9b849b74caebf02d3465d6beb716510d86a39f6c8e8dac7515  /tmp/influxdata-archive.key" | sha256sum -c -
+  register: checksum_result
+  failed_when: "checksum_result.rc != 0"
+  
+- name: Remove existing GPG file if it exists
+  ansible.builtin.file:
+    path: /etc/apt/trusted.gpg.d/influxdata-archive.gpg
+    state: absent
+  become: yes
+
+- name: Convert GPG key to .gpg format and move to the trusted location
+  ansible.builtin.command:
+    cmd: "gpg --batch --dearmor -o /etc/apt/trusted.gpg.d/influxdata-archive.gpg /tmp/influxdata-archive.key"
+  changed_when: true
+
+- name: Add influxDB repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive.gpg] https://repos.influxdata.com/debian stable main"
+    filename: "influxdata"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install telegraf
+  ansible.builtin.apt:
+    name: telegraf
+    state: present
+
+- name: Copy Telegraf configuration file
+  ansible.builtin.template:
+    src: telegraf.conf.j2
+    dest: /etc/telegraf/telegraf.conf
+    mode: '0644'
+  notify: Restart Telegraf
